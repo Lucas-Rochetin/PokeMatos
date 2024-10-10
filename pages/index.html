@@ -1,55 +1,175 @@
 <!DOCTYPE html>
-
+<html lang="en">
 <head>
-    <title>My Website</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokematos Chat</title>
+    <link rel="icon" type="image/png" href="../assets/favicon.png">
     <style>
-        *,
-        html {
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
             margin: 0;
             padding: 0;
-            border: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
         }
-
-        html {
-            width: 100%;
-            height: 100%;
+        header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
         }
-
-        body {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            background-color: rgb(236, 152, 42);
+        img {
+            width: 50px;
+            height: 50px;
+            margin-right: 15px;
         }
-
-        .center {
-            width: 100%;
-            height: 50%;
-            margin: 0;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-family: "Trebuchet MS", Helvetica, sans-serif;
-            text-align: center;
-        }
-
         h1 {
-            font-size: 144px;
+            font-size: 2.5rem;
+            color: #ff0000;
         }
-
-        p {
-            font-size: 64px;
+        .chat-container {
+            border: 2px solid #ddd;
+            width: 80%;
+            max-width: 600px;
+            height: 400px;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            display: none;
+        }
+        input[type="text"] {
+            width: calc(100% - 100px);
+            padding: 10px;
+            font-size: 1rem;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            background-color: #ff0000;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .username-prompt {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+        .users-list {
+            width: 200px;
+            margin-left: 20px;
+            border-left: 1px solid #ddd;
+            padding-left: 10px;
+        }
+        .chat-wrapper {
+            display: flex;
+            justify-content: space-between;
         }
     </style>
 </head>
-
 <body>
-    <div class="center">
-        <h1>Hello Again!</h1>
-        <p>This is served from a file</p>
+    <header>
+        <img src="../assets/favicon.png" alt="Pokematos Logo">
+        <h1>Pokematos IRC Chat</h1>
+    </header>
+    <div class="username-prompt" id="username-prompt">
+        <h2>Choose a username</h2>
+        <form id="username-form">
+            <input type="text" id="username" placeholder="Enter your username" required>
+            <button type="submit">Join Chat</button>
+        </form>
     </div>
-</body>
 
+    <div class="chat-wrapper">
+        <div class="chat-container" id="chat">
+            <p><strong>User1:</strong> Hello, welcome to Pokematos Chat!</p>
+        </div>
+        <div class="users-list" id="users-list">
+            <h3>Connected Users</h3>
+            <ul id="users"></ul>
+        </div>
+    </div>
+
+    <form onsubmit="sendMessage(event)" style="display: none;" id="chat-form">
+        <input type="text" id="message" placeholder="Type your message..." required>
+        <button type="submit">Send</button>
+    </form>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        function setCookie(name, value, hours) {
+            const date = new Date();
+            date.setTime(date.getTime() + (hours * 60 * 60 * 1000));
+            const expires = "expires=" + date.toUTCString();
+            document.cookie = name + "=" + value + ";" + expires + ";path=/";
+        }
+
+        function getCookie(name) {
+            const decodedCookie = decodeURIComponent(document.cookie);
+            const cookies = decodedCookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                let cookie = cookies[i].trim();
+                if (cookie.indexOf(name + "=") === 0) {
+                    return cookie.substring(name.length + 1, cookie.length);
+                }
+            }
+            return "";
+        }
+
+        function checkUsername() {
+            const username = getCookie("username");
+            if (username !== "") {
+                socket.emit('setUsername', username);
+                document.getElementById('chat').style.display = 'block';
+                document.getElementById('chat-form').style.display = 'block';
+            } else {
+                document.getElementById('username-prompt').style.display = 'flex';
+            }
+        }
+
+        document.getElementById('username-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const username = document.getElementById('username').value;
+            setCookie("username", username, 5); // Set cookie for 5 hours
+            socket.emit('setUsername', username);
+            document.getElementById('username-prompt').style.display = 'none';
+            document.getElementById('chat').style.display = 'block';
+            document.getElementById('chat-form').style.display = 'block';
+        });
+
+        function sendMessage(event) {
+            event.preventDefault();
+            const message = document.getElementById('message').value;
+            socket.emit('sendMessage', message);
+            document.getElementById('message').value = '';
+        }
+
+        socket.on('message', (data) => {
+            const chatContainer = document.getElementById('chat');
+            chatContainer.innerHTML += `<p><strong>${data.username}:</strong> ${data.message}</p>`;
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        });
+
+        // Listen for updated user list
+        socket.on('updateUserList', (users) => {
+            const usersList = document.getElementById('users');
+            usersList.innerHTML = '';  // Clear the list
+            users.forEach(user => {
+                usersList.innerHTML += `<li>${user}</li>`;
+            });
+        });
+
+        window.onload = checkUsername;
+    </script>
+</body>
 </html>
