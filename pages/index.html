@@ -87,33 +87,42 @@
             <button type="submit">Join Chat</button>
         </form>
     </div>
-
+    
     <div class="chat-wrapper">
         <div class="chat-container" id="chat">
-            <p><strong>User1:</strong> Hello, welcome to Pokematos Chat!</p>
+            <p><strong>Prof Oak:</strong> Hello, welcome to Pokematos Chat!</p>
         </div>
         <div class="users-list" id="users-list">
             <h3>Connected Users</h3>
             <ul id="users"></ul>
         </div>
     </div>
-
+    
     <form onsubmit="sendMessage(event)" style="display: none;" id="chat-form">
         <input type="text" id="message" placeholder="Type your message..." required>
         <button type="submit">Send</button>
     </form>
-
+    
     <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
-
+        
+        // Load stored messages when the user connects
+        socket.on('loadMessages', (messages) => {
+            const chatContainer = document.getElementById('chat');
+            messages.forEach((data) => {
+                chatContainer.innerHTML += `<p><strong>${data.username}:</strong> ${data.message}</p>`;
+            });
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        });
+        
         function setCookie(name, value, hours) {
             const date = new Date();
             date.setTime(date.getTime() + (hours * 60 * 60 * 1000));
             const expires = "expires=" + date.toUTCString();
             document.cookie = name + "=" + value + ";" + expires + ";path=/";
         }
-
+        
         function getCookie(name) {
             const decodedCookie = decodeURIComponent(document.cookie);
             const cookies = decodedCookie.split(';');
@@ -125,7 +134,7 @@
             }
             return "";
         }
-
+        
         function checkUsername() {
             const username = getCookie("username");
             if (username !== "") {
@@ -136,7 +145,7 @@
                 document.getElementById('username-prompt').style.display = 'flex';
             }
         }
-
+        
         document.getElementById('username-form').addEventListener('submit', function(event) {
             event.preventDefault();
             const username = document.getElementById('username').value;
@@ -146,20 +155,20 @@
             document.getElementById('chat').style.display = 'block';
             document.getElementById('chat-form').style.display = 'block';
         });
-
+        
         function sendMessage(event) {
             event.preventDefault();
             const message = document.getElementById('message').value;
             socket.emit('sendMessage', message);
             document.getElementById('message').value = '';
         }
-
+        
         socket.on('message', (data) => {
             const chatContainer = document.getElementById('chat');
             chatContainer.innerHTML += `<p><strong>${data.username}:</strong> ${data.message}</p>`;
             chatContainer.scrollTop = chatContainer.scrollHeight;
         });
-
+        
         // Listen for updated user list
         socket.on('updateUserList', (users) => {
             const usersList = document.getElementById('users');
@@ -168,7 +177,7 @@
                 usersList.innerHTML += `<li>${user}</li>`;
             });
         });
-
+        
         window.onload = checkUsername;
     </script>
 </body>
